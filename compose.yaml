@@ -156,7 +156,7 @@ services:
     ports:
       - "8181:8181"
     networks:
-      - comet_proxy
+      - proxy
     volumes:
       - zilean_data:/app/data
     environment:
@@ -187,7 +187,7 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - comet_proxy
+      - proxy
     volumes:
       - pg-data:/var/lib/postgresql/data/pgdata
     healthcheck:
