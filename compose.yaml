@@ -23,7 +23,7 @@ services:
       - proxy
 # This is a Comet full stack with Zilean, flaresolverr, Warp, Prowlarr/Jackett deployed through docker compose using Traefik as a reverse proxy.
   Comet:
-    image: g0ldyy/comet@sha256:1df857a1dacd1457e433eaac1046fab794d592a9cfd14af4f547d364799acd67
+    image: g0ldyy/comet
     container_name: comet
     restart: unless-stopped
 #     ports: #uncomment this if you're not using a reverse proxy
@@ -150,48 +150,52 @@ services:
       - "traefik.docker.network=proxy"
 
   zilean:
-    image: ipromknight/zilean:1.4.0
+    image: ipromknight/zilean
     restart: unless-stopped
     container_name: zilean
     ports:
       - "8181:8181"
     networks:
-      proxy:
+      - comet_proxy
     volumes:
       - zilean_data:/app/data
     environment:
-        Zilean__ElasticSearch__Url: http://elasticsearch:9200
-        Zilean__Dmm__MinimumScoreMatch: 40
+
+        Zilean__Imdb__MinimumScoreMatch: 0.60    #             Allows changing the minimum score match for Imdb Matching API. 0.85 is the default. Values between 0 and 1 are accepted.
+        Zilean__Database__ConnectionString: Host=postgres;Port=5432;Database=zilean;Username=postgres;Password=postgres
+      # Zilean__Dmm__ImportBatched: "true"         Allows enabling batched import - this is for low-end systems.
+      # Zilean__Dmm__MaxFilteredResults: 200       Allows changing the maximum number of filtered results returned by the DMM API. 200 is the default.
+        Zilean__Dmm__MinimumScoreMatch: 0.50    #   Allows changing the minimum score match for the DMM API. 0.85 is the default. Values between 0 and 1 are accepted.
     healthcheck:
       test: curl --connect-timeout 10 --silent --show-error --fail http://localhost:8181/healthchecks/ping
       timeout: 60s
       interval: 30s
       retries: 10
     depends_on:
-      elasticsearch:
+      postgres:
         condition: service_healthy
 
-  elasticsearch:
-    image: elasticsearch:8.14.1@sha256:ff3998ab3d8a84984e5298d33d01a174fc5f8abed15ad58d0a54364fc63d68d9
-    container_name: elasticsearch
+  postgres:
+    image: postgres:16.3-alpine3.20
+    container_name: postgres
+    restart: unless-stopped
     environment:
-      ES_SETTING_DISCOVERY_TYPE: single-node
-      ES_SETTING_XPACK_SECURITY_ENABLED: false
-      ES_SETTING_BOOTSTRAP_MEMORY__LOCK: true
-      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: zilean
     ports:
-      - "9200:9200"
-      - "9300:9300"
+      - "5432:5432"
     networks:
-      proxy:
-    healthcheck:
-      test: curl -s http://localhost:9200 >/dev/null || exit 1
-      interval: 30s
-      timeout: 10s
-      retries: 10
+      - comet_proxy
     volumes:
-      - elastic_data:/usr/share/elasticsearch/data:rw
-
+      - pg-data:/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
 # This assumes you have a proxy network setup with Traefik already existing
 networks:
    proxy:
@@ -199,9 +203,8 @@ networks:
 
 # Comment out any volumes not needed or if you would like a persistent volume instead.    
 volumes:
-  elastic_data:
   warp_data:
   prowlarr_data:
   jackett_data:
   zilean_data:
-
+  pg-data:
