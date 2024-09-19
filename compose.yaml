@@ -73,7 +73,7 @@ services:
       - 1080:1080
     environment:
       - WARP_SLEEP=2
-      - WARP_LICENSE_KEY=69A3v7Va-P3B48JF9-581LV4rv # optional
+      - WARP_LICENSE_KEY= # optional
     cap_add:
       - NET_ADMIN
     sysctls:
